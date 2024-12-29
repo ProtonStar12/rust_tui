@@ -10,3 +10,11 @@ pub fn create_layout(area: Rect) -> Vec<Rect> {
     ])
     .split(area).to_vec()
 }
+
+pub fn layout2(area: Rect) -> Vec<Rect> {
+    Layout::default()
+    .direction(Direction::Vertical)
+    .constraints([Constraint::Percentage(90),
+Constraint::Percentage(10)])
+    .split(area).to_vec()
+}
