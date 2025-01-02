@@ -8,13 +8,24 @@ use crate::ui::sections::music_browser::BrowserRenderer;
 use std::path::PathBuf;
 use std::error::Error;
 use ratatui::widgets::{Paragraph,Block,Borders};
-
+use std::path::Path;
+use std::thread;
+use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::process::{Stdio,Command};
+use std::io::BufReader;
+use std::io::BufRead;
+use ratatui::widgets::canvas::{Canvas,Line};
 //
 use crate::ui::layout::create_layout;
 use crate::ui::sections::todo_list::TodoListRenderer;
 use crate::state::event::EventHandler;
 use crate::state::browser::MusicBrowser;
 use crate::state::browser::{MusicItem,SongMapping};
+use crate::ui::sections::player::PlayerRenderer;
+use image::DynamicImage;
+use super::player::MusicPlayer;
+use crate::utils::art::get_album_art;
 
 
 pub struct App {
@@ -24,16 +35,21 @@ pub struct App {
     next_id: usize,
     pub music_browser: Option<MusicBrowser>,
     pub song_mapping: Option<SongMapping>,
+    pub music_player: Option<MusicPlayer>,
+    pub cava_bars:  Option<Vec<u8>>,
 }
 #[derive(Clone, Copy)]
 pub(crate) enum InputMode {
     Normal,
     Editing,
     Browser,
+    Player,
 }
 
 impl App {
     pub fn new() -> Self {
+       
+
         Self {
             todos: Vec::new(),
             input: String::new(),
@@ -41,6 +57,8 @@ impl App {
             next_id: 1,
             music_browser: None,
             song_mapping: SongMapping::load_from_file("/home/vinay/songs.yaml").ok(),
+            music_player: None,
+            cava_bars: Some(vec![0;32]),
 
 
         }
@@ -53,6 +71,8 @@ impl App {
         .max()
         .map(|id| id+1)
         .unwrap_or(1);
+ 
+
 
         Self {
             todos,
@@ -61,25 +81,46 @@ impl App {
             next_id,
             music_browser: None,
             song_mapping: SongMapping::load_from_file("/home/vinay/songs.yaml").ok(),
+            music_player:None,
+            cava_bars: Some(vec![0;32]),
 
 
 
         }
     }
-
     pub fn run(&mut self,terminal: &mut Terminal<impl Backend>) -> Result<()> {
+         let frame_time = Duration::from_millis(16);
+      
+         // Spawn a thread to run CAVA and update bars
+       
+     
         loop {
+            let start = std::time::Instant::now();
+       
+        
+              if let Some(ref mut player) = self.music_player {
+                player.update();
+           
+            }
             terminal.draw(|frame| self.render(frame))?;
+         
+            thread::sleep(Duration::from_millis(50));
+
+            
              
              if EventHandler::handle_event(self)? {
                 break;
              }
+             let elapsed = start.elapsed();
+            if elapsed < frame_time {
+                thread::sleep(frame_time - elapsed);
+            }
         }
         Ok(())
     }
 
 
-    fn render(&self, frame: &mut Frame) {
+    fn render(& mut self, frame: &mut Frame) {
         
         match self.input_mode { 
             InputMode::Normal | InputMode::Editing => {
@@ -92,23 +133,56 @@ impl App {
 
             }
 
-            InputMode::Browser => {
-                let design = layout2(frame.area());
+            InputMode::Browser | InputMode::Player => {
+                let area = frame.area();
+                let (main_chunks,left_chunks,image_vinyl_chunks) = layout2(area);
                 if let Some(browser) = &self.music_browser {
                     // Pass browser items and browser reference to the renderer
-                    let list = BrowserRenderer::render_browser(&browser.items, browser);
-                    frame.render_widget(list, design[0]);
+                    let list = BrowserRenderer::render_browser(&browser.items, browser, self.input_mode);
+                    frame.render_widget(list, main_chunks[1]);
                 } else {
                     let error_widget = Paragraph::new("No browser available")
                         .block(Block::default().title("Error").borders(Borders::ALL));
-                    frame.render_widget(error_widget, design[0]);
+                    frame.render_widget(error_widget, main_chunks[1]);
                 }
+
+                if let Some( music) = &mut self.music_player {
+                    let player_render = PlayerRenderer::new();
+                    player_render.render_player(music, frame, image_vinyl_chunks[0]);
+                    player_render.render_progress_bar(music, frame, image_vinyl_chunks[2]);
+                   // music.update();
+                }
+                
+                
             }
+
             
         }
   
     }
 
+    pub fn initialize_music_player_from_browser(&mut self) -> Result<()> {
+        // Ensure the MusicBrowser is initialized
+        if let Some(browser) = &self.music_browser {
+            // Get the selected music path
+            if let Some(song_path) = browser.get_selected_music_path() {
+                // Dynamically get album art based on the song path
+                let album_art = get_album_art(&song_path).or_else(|_| {
+                    anyhow::bail!("Failed to retrieve album art for the song: {}", song_path)
+                })?;
+                
+
+                // Initialize the music player
+                self.music_player = Some(MusicPlayer::new(album_art, &song_path)?);
+
+                return Ok(());
+            } else {
+                anyhow::bail!("No song selected in the music browser");
+            }
+        } else {
+            anyhow::bail!("Music browser is not initialized");
+        }
+    }
     pub fn handle_music_browser_exit(app_state: &mut App) -> Result<(), Box<dyn Error>> {
         app_state.clear_music_browser()?;
         app_state.set_input_mode(InputMode::Normal);
@@ -130,6 +204,19 @@ impl App {
             browser.cleanup()?;
         }
         self.music_browser = None;
+        Ok(())
+    }
+    pub fn cleanup_music_player(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(player) = &mut self.music_player {
+            player.cleanup();
+        }
+        self.music_player = None;
+        Ok(())
+    }
+
+    pub fn handle_player_exit(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.cleanup_music_player()?;
+        self.set_input_mode(InputMode::Normal);
         Ok(())
     }
 

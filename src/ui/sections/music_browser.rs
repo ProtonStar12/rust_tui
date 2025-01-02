@@ -11,6 +11,7 @@ use std::{error::Error, fs::File, io};
 
 use crate::state::browser::{MusicItem,MusicBrowser};
 use crate::state::app::InputMode;
+use crate::state::app::App;
 
 
 fn init_logger() {
@@ -27,7 +28,7 @@ pub struct BrowserRenderer ;
 impl BrowserRenderer {
 
 
-    pub fn render_browser<'a>(items: &'a[MusicItem], browser: &'a MusicBrowser) -> List<'a>  {
+    pub fn render_browser<'a>(items: &'a[MusicItem], browser: &'a MusicBrowser, input_mode: InputMode) -> List<'a>  {
         let things: Vec<ListItem> = items
             .iter()
             .enumerate()
@@ -54,6 +55,12 @@ impl BrowserRenderer {
             .collect();
             List::new(things)
             .block(Block::default().borders(Borders::ALL).title("Music Browser"))
+            .style(match input_mode {
+                InputMode::Normal => Style::default(),
+                InputMode::Editing => Style::default(),
+                InputMode::Browser => Style::default().fg(Color::Blue),
+                InputMode::Player => Style::default(),
+            })
     }
     
     

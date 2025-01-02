@@ -35,6 +35,7 @@ impl TodoListRenderer {
                 InputMode::Normal => Style::default(),
                 InputMode::Editing => Style::default().fg(Color::Yellow),
                 InputMode::Browser => Style::default(),
+                InputMode::Player => Style::default(),
             }))
     }
 }

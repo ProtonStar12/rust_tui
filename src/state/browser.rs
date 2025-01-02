@@ -22,6 +22,7 @@ impl SongMapping {
         let song_filename = Path::new(song_path).file_name()?.to_str()?;
         self.mapping.get(song_filename)
     }
+    
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,15 @@ pub struct MusicItem {
     pub music_path: Option<PathBuf>,
 }
 
+impl MusicItem {
+
+    pub fn get_music_path(&self) -> Option<String> {
+        self.music_path
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned())
+    }
+    
+}
 pub struct MusicBrowser {
     pub current_path: PathBuf,
     pub items: Vec<MusicItem>,
@@ -116,7 +126,11 @@ impl MusicBrowser {
             }
         }
         Ok(())
+    } 
+     pub fn get_selected_music_path(&self) -> Option<String> {
+        self.select_item()?.get_music_path()
     }
+
 
     fn kill_current_player(&mut self) -> Result<()> {
         if let Some(mut player) = self.current_player.take() {
@@ -131,7 +145,7 @@ impl MusicBrowser {
         }
         Ok(())
     }
-
+   
     pub fn cleanup(&mut self) -> Result<()> {
         self.kill_current_player()
     }
