@@ -8,7 +8,13 @@ use ratatui::prelude::*;
 use ratatui::widgets::*;
 use ratatui_image::{picker::Picker, protocol::Protocol};
 use image::DynamicImage;
-use crossterm::event::{KeyCode,KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent};
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::MediaSourceStreamOptions;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
+use symphonia::default::get_probe;
 
 pub struct MusicPlayer {
     pub image_static: Option<Protocol>,
@@ -22,13 +28,11 @@ pub struct MusicPlayer {
     pub audio_file: String,
     pub total_duration: Option<Duration>,
     pub start_time: Option<Instant>,
-    pub elapsed_before_pause: Duration,  // Total time elapsed before current pause
-    pub pause_start: Option<Instant>,  
+    pub elapsed_before_pause: Duration,
+    pub pause_start: Option<Instant>,
 }
 
-
 impl MusicPlayer {
-
     pub fn new(image: DynamicImage, audio_file: &str) -> Result<Self, anyhow::Error> {
         // Initialize Picker and Image Protocol
         let mut picker = Picker::from_query_stdio()?;
@@ -38,17 +42,40 @@ impl MusicPlayer {
             .new_protocol(image.clone(), size, ratatui_image::Resize::Fit(None))
             .ok();
 
+        // Get duration using symphonia
+        let src = File::open(audio_file)?;
+        let probe_stream = MediaSourceStream::new(
+            Box::new(src), 
+            MediaSourceStreamOptions::default()
+        );
+        
+        let hint = Hint::new();
+        let probe = get_probe();
+        let format_opts = FormatOptions::default();
+        let metadata_opts = MetadataOptions::default();
+        
+        let format = probe.format(&hint, probe_stream, &format_opts, &metadata_opts)
+            .expect("Failed to probe format");
+
+        let track = format.format.default_track()
+            .expect("No default track found");
+
+        let total_duration = if let Some(duration) = track.codec_params.n_frames {
+            if let Some(sample_rate) = track.codec_params.sample_rate {
+                let duration_seconds = duration as f64 / sample_rate as f64;
+                Some(Duration::from_secs_f64(duration_seconds))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         // Initialize Rodio Playback
         let (stream, stream_handle) = OutputStream::try_default()?;
         let sink = Sink::try_new(&stream_handle)?;
-        
-        // Get duration without consuming the source
-        let file = File::open(audio_file)?;
-        let reader = BufReader::new(file);
-        let source = Decoder::new(reader)?;
-        let total_duration = source.total_duration();
-        
-        // Create a new source for playback
+
+        // Create a new source for playback using rodio
         let file = File::open(audio_file)?;
         let reader = BufReader::new(file);
         let source = Decoder::new(reader)?;
@@ -57,7 +84,6 @@ impl MusicPlayer {
         sink.set_volume(1.0);
 
         Ok(Self {
-           
             image_static,
             image_offset: (10, 3),
             vinyl_angle: 0.0,
@@ -73,7 +99,6 @@ impl MusicPlayer {
             pause_start: None,
         })
     }
-
     pub fn reload_audio(&mut self) -> Result<(), Box<dyn Error>> {
         let sink = Sink::try_new(&self.stream_handle)?;
         let file = File::open(&self.audio_file)?;
@@ -226,9 +251,10 @@ impl MusicPlayer {
         let progress = (self.get_playback_progress() * 100.0) as u16;
 
         Gauge::default()
-            .block(Block::default().borders(Borders::ALL).title("Playback Progress"))
-            .gauge_style(Style::default().fg(Color::Green))
+            .block(Block::default())
+            .gauge_style(Style::default().fg(Color::Blue))
             .percent(progress)
+            .label("")
     }
 
     pub fn cleanup(&mut self) {

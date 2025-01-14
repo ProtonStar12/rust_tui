@@ -26,6 +26,7 @@ use crate::ui::sections::player::PlayerRenderer;
 use image::DynamicImage;
 use super::player::MusicPlayer;
 use crate::utils::art::get_album_art;
+use crate::state::event::VISIBLE_COUNT;
 
 
 pub struct App {
@@ -135,26 +136,31 @@ impl App {
 
             InputMode::Browser | InputMode::Player => {
                 let area = frame.area();
-                let (main_chunks,left_chunks,image_vinyl_chunks) = layout2(area);
+                let (main_chunks, left_chunks, right_chunks, image_vinyl_chunks) = layout2(area);
                 if let Some(browser) = &self.music_browser {
-                    // Pass browser items and browser reference to the renderer
-                    let list = BrowserRenderer::render_browser(&browser.items, browser, self.input_mode);
-                    frame.render_widget(list, main_chunks[1]);
+                    // Pass browser items, browser reference, input mode, and visible count to the renderer
+                    let list = BrowserRenderer::render_browser(&browser.items, browser, self.input_mode, VISIBLE_COUNT);
+                    frame.render_widget(list, right_chunks[0]);
                 } else {
                     let error_widget = Paragraph::new("No browser available")
                         .block(Block::default().title("Error").borders(Borders::ALL));
                     frame.render_widget(error_widget, main_chunks[1]);
                 }
-
-                if let Some( music) = &mut self.music_player {
+            
+                if let Some(music) = &mut self.music_player {
                     let player_render = PlayerRenderer::new();
                     player_render.render_player(music, frame, image_vinyl_chunks[0]);
-                    player_render.render_progress_bar(music, frame, image_vinyl_chunks[2]);
-                   // music.update();
+                    player_render.name(music, frame, image_vinyl_chunks[1]);
+                    player_render.info(music, frame, image_vinyl_chunks[2]);
+                    player_render.render_progress_bar(music, frame, image_vinyl_chunks[3]);
+                    // music.update();
                 }
-                
-                
+
             }
+            
+                
+                
+            
 
             
         }

@@ -1,4 +1,5 @@
 use std::future::IntoFuture;
+pub const VISIBLE_COUNT: usize = 16; // Adjust the value based on your desired visible items
 
 use anyhow::Result;
 use crossterm::event::{read, Event, KeyCode, KeyEventKind};
@@ -57,15 +58,16 @@ impl EventHandler {
             }
 
             // Browser controls
+            
             (KeyCode::Up, InputMode::Browser) => {
                 if let Some(browser) = &mut app_state.music_browser {
-                    browser.move_selection_up();
+                    browser.move_selection_up(VISIBLE_COUNT);
                 }
             }
 
             (KeyCode::Down, InputMode::Browser) => {
                 if let Some(browser) = &mut app_state.music_browser {
-                    browser.move_selection_down();
+                    browser.move_selection_down(VISIBLE_COUNT);
                 }
             }
 

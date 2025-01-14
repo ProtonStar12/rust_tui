@@ -27,33 +27,42 @@ pub struct BrowserRenderer ;
 
 impl BrowserRenderer {
 
-
-    pub fn render_browser<'a>(items: &'a[MusicItem], browser: &'a MusicBrowser, input_mode: InputMode) -> List<'a>  {
-        let things: Vec<ListItem> = items
+    pub fn render_browser<'a>(
+        items: &'a [MusicItem],
+        browser: &'a MusicBrowser,
+        input_mode: InputMode,
+        visible_count: usize,
+    ) -> List<'a> {
+        // Determine the visible range
+        let visible_start = browser.scroll_offset;
+        let visible_end = (visible_start + visible_count).min(items.len());
+        let visible_items = &items[visible_start..visible_end];
+    
+        let things: Vec<ListItem> = visible_items
             .iter()
             .enumerate()
             .map(|(i, item)| {
-                // Determine the prefix based on the item's type
+                let absolute_index = i + visible_start;
                 let prefix = if item.is_dir {
                     "[DIR]"
                 } else if item.video_path.is_some() {
-                    "[MUSIC+VIDEO]"
+                    ""
                 } else {
                     "[MUSIC]"
                 };
     
-                // Apply highlight style for the selected item
-                let style = if i == browser.selected_index {
+                let style = if absolute_index == browser.selected_index {
                     Style::default().fg(Color::Yellow)
                 } else {
                     Style::default()
                 };
     
-                // Create the list item with prefix and name
-                ListItem::new(format!("{} {}", prefix, item.name)).style(style)
+                let content = format!("{:>70}", format!("{} {}", prefix, item.name));
+                ListItem::new(content).style(style)
             })
             .collect();
-            List::new(things)
+    
+        List::new(things)
             .block(Block::default().borders(Borders::ALL).title("Music Browser"))
             .style(match input_mode {
                 InputMode::Normal => Style::default(),
@@ -62,6 +71,7 @@ impl BrowserRenderer {
                 InputMode::Player => Style::default(),
             })
     }
+    
     
     
 }

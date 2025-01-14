@@ -1,0 +1,41 @@
+   let sec = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+    
+    // Format the total duration
+    let total_duration_text = music_player.total_duration.map_or("Unknown".to_string(), |d| {
+        let minutes = d.as_secs() / 60;
+        let seconds = d.as_secs() % 60;
+        format!("{:02}:{:02}", minutes, seconds)
+    });
+    
+    // Calculate the elapsed time
+    let elapsed_time_text = if let Some(total_duration) = music_player.total_duration {
+        let progress = music_player.get_playback_progress();
+        let elapsed = total_duration.mul_f32(progress);
+        let minutes = elapsed.as_secs() / 60;
+        let seconds = elapsed.as_secs() % 60;
+        format!("{:02}:{:02}", minutes, seconds)
+    } else {
+        "Unknown".to_string()
+    };
+    
+    // Display the progress as a percentage (optional)
+  // let progress_text = format!("{:.2}%", music_player.get_playback_progress() * 100.0);
+    let faf:String = format!("here");
+    // Create paragraphs for progress and elapsed time
+    let progress_paragraph = Paragraph::new(faf)
+        .block(Block::default().borders(Borders::ALL).title("Progress"));
+    frame.render_widget(progress_paragraph, sec[1]);
+    
+    let info_text = format!(
+        "Elapsed: {}\nTotal: {}",
+        elapsed_time_text, total_duration_text
+    );
+    
+    let duration_paragraph = Paragraph::new(info_text)
+        .style(Style::default().fg(Color::Blue))
+        .block(Block::default().borders(Borders::ALL).title("Info"));
+    frame.render_widget(duration_paragraph, sec[0]);
+    

@@ -47,6 +47,7 @@ pub struct MusicBrowser {
     pub items: Vec<MusicItem>,
     pub selected_index: usize,
     current_player: Option<Child>,
+    pub scroll_offset: usize,
 }
 
 impl MusicBrowser {
@@ -60,6 +61,7 @@ impl MusicBrowser {
             items,
             selected_index: 0,
             current_player: None,
+            scroll_offset: 0, // Initialize scroll offset
         })
     }
 
@@ -87,18 +89,22 @@ impl MusicBrowser {
         self.items.get(self.selected_index)
     }
 
-    pub fn move_selection_up(&mut self) {
+    pub fn move_selection_up(&mut self, visible_count: usize) {
         if self.selected_index > 0 {
             self.selected_index -= 1;
+            if self.selected_index < self.scroll_offset {
+                self.scroll_offset = self.selected_index;
+            }
         }
     }
-
-    pub fn move_selection_down(&mut self) {
+    pub fn move_selection_down(&mut self, visible_count: usize) {
         if self.selected_index + 1 < self.items.len() {
             self.selected_index += 1;
+            if self.selected_index >= self.scroll_offset + visible_count {
+                self.scroll_offset = self.selected_index - visible_count + 1;
+            }
         }
     }
-
     pub fn enter_directory(&mut self, dir_name: &str, song_mapping: Option<&SongMapping>) -> Result<()> {
         let new_path = self.current_path.join(dir_name);
         if new_path.is_dir() {
