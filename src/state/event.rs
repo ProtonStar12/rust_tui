@@ -7,7 +7,7 @@ use crossterm::event::{ KeyEvent,KeyModifiers};  // Add this import
 use crossterm::event;
 use std::time::Duration;
 
-use crate::state::browser::MusicBrowser;
+use crate::state::browser::{self, MusicBrowser};
 use crate::state::player::MusicPlayer;
 use crate::state::app::App;
 use crate::utils::art::get_album_art;
@@ -51,10 +51,24 @@ impl EventHandler {
             }
 
             (KeyCode::Char('b'), InputMode::Normal|InputMode::Player) => {
-                if let Err(e) = app_state.show_music_browser() {
-                    log::error!("Failed to show browser: {}", e);
+                if app_state.music_browser.is_none() {
+                    if let Err(e) = app_state.show_music_browser() {
+                        log::error!("Failed to show browser: {}", e);
+                    }
                 }
+                
+                // Restore last selected index if it exists
+                if let Some(index) = app_state.last_browser_index {
+                    if let Some(browser) = &mut app_state.music_browser {
+                        if index < browser.items.len() {
+                            browser.selected_index = index;
+                        }
+                    }
+                }
+                
                 app_state.set_input_mode(InputMode::Browser);
+                app_state.from_player = true;
+                
             }
 
             // Browser controls
@@ -72,6 +86,12 @@ impl EventHandler {
             }
 
             (KeyCode::Enter, InputMode::Browser) => {
+
+                if app_state.from_player{
+                    app_state.kill_vod();
+                    app_state.from_player = false;
+                }
+                
                 if let Some(browser) = &mut app_state.music_browser {
                     let is_dir = browser.select_item().map(|item| item.is_dir).unwrap_or(false);
                     let item_name = browser.select_item().map(|item| item.name.clone());
@@ -99,6 +119,10 @@ impl EventHandler {
 
             (KeyCode::Char('v'), InputMode::Browser) => {
                 app_state.set_input_mode(InputMode::Player);
+                if let Some(browser) = &app_state.music_browser {
+                    app_state.last_browser_index = Some(browser.selected_index);
+                }
+                
             }
 
             // Player controls

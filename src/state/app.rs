@@ -38,6 +38,8 @@ pub struct App {
     pub song_mapping: Option<SongMapping>,
     pub music_player: Option<MusicPlayer>,
     pub cava_bars:  Option<Vec<u8>>,
+    pub from_player: bool,
+    pub last_browser_index: Option<usize>,
 }
 #[derive(Clone, Copy)]
 pub(crate) enum InputMode {
@@ -60,6 +62,8 @@ impl App {
             song_mapping: SongMapping::load_from_file("/home/vinay/songs.yaml").ok(),
             music_player: None,
             cava_bars: Some(vec![0;32]),
+            from_player: false,
+            last_browser_index: None,
 
 
         }
@@ -84,6 +88,8 @@ impl App {
             song_mapping: SongMapping::load_from_file("/home/vinay/songs.yaml").ok(),
             music_player:None,
             cava_bars: Some(vec![0;32]),
+            from_player: false,
+            last_browser_index: None,
 
 
 
@@ -220,6 +226,18 @@ impl App {
         Ok(())
     }
 
+
+    pub fn kill_vod(&mut self) {
+        if let Ok(mut child) = Command::new("pkill")
+            .arg("mpvpaper")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            let _ = child.wait(); // Wait for pkill to complete
+        }
+    }
+    
     pub fn handle_player_exit(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.cleanup_music_player()?;
         self.set_input_mode(InputMode::Normal);
