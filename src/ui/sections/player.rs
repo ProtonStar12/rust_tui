@@ -86,10 +86,16 @@ let combined_info_text = format!(
 // Create and render a paragraph with both elapsed and total duration information
 let info_paragraph = Paragraph::new(combined_info_text)
     .style(Style::default().fg(Color::Blue))
-    .block(Block::default().borders(Borders::NONE));
+    .block(Block::default().borders(Borders::ALL));
+let repeat_status = Paragraph::new("REPEAT")
+    .style(Style::default().fg(if music_player.repeat { Color::White } else { Color::DarkGray }))
+   // .alignment(Alignment::Center)
+    .block(Block::default().borders(Borders::ALL));
+
 
 // Render the paragraph
 frame.render_widget(info_paragraph, sec[0]);
+frame.render_widget(repeat_status, sec[1]);
     
         
     }

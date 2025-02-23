@@ -20,7 +20,7 @@ Constraint::Percentage(50)])
 
     let left_chunks = Layout::default()
     .direction(Direction::Vertical)
-    .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+    .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
     .split(main_chunks[0]).to_vec();
  let right_chunks = Layout::default()
 
@@ -31,9 +31,9 @@ Constraint::Percentage(50)])
     let image_vinyl_chunks = Layout::default()
     .direction(Direction::Vertical)
     .constraints([Constraint::Percentage(75),
-    Constraint::Percentage(12),
-    Constraint::Percentage(6),
-    Constraint::Percentage(7)])
+    Constraint::Percentage(5),
+    Constraint::Percentage(10),
+    Constraint::Percentage(10)])
     .split(left_chunks[0]).to_vec();
 
     (main_chunks,left_chunks,right_chunks,image_vinyl_chunks)

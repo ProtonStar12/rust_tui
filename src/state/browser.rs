@@ -5,6 +5,8 @@ use anyhow::{Result, Context};
 use log::{debug, warn, error};
 use serde::Deserialize;
 use std::process::{Command, Child, Stdio};
+use std::sync::mpsc::{self, Sender, Receiver};
+use std::thread;
 
 #[derive(Debug, Deserialize)]
 pub struct SongMapping {
@@ -22,7 +24,6 @@ impl SongMapping {
         let song_filename = Path::new(song_path).file_name()?.to_str()?;
         self.mapping.get(song_filename)
     }
-    
 }
 
 #[derive(Debug, Clone)]
@@ -34,13 +35,11 @@ pub struct MusicItem {
 }
 
 impl MusicItem {
-
     pub fn get_music_path(&self) -> Option<String> {
         self.music_path
-        .as_ref()
-        .map(|path| path.to_string_lossy().into_owned())
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned())
     }
-    
 }
 pub struct MusicBrowser {
     pub current_path: PathBuf,
@@ -48,23 +47,29 @@ pub struct MusicBrowser {
     pub selected_index: usize,
     current_player: Option<Child>,
     pub scroll_offset: usize,
+    pub song_finished_rx: Receiver<()>,  // Receiver for song completion
+    pub song_finished_tx: Sender<()>,   // Sender for signaling song completion
+    pub next_mode: bool,                // Determines if auto-play is enabled
 }
 
 impl MusicBrowser {
     pub fn new(initial_path: &Path, song_mapping: Option<&SongMapping>) -> Result<Self> {
-        if !initial_path.exists() {
-            fs::create_dir_all(initial_path)?;
-        }
+        let (tx, rx) = mpsc::channel(); // Create the channel
+
         let items = Self::list_directory(initial_path, song_mapping)?;
-        Ok(Self {
+        Ok(MusicBrowser {
             current_path: initial_path.to_path_buf(),
             items,
             selected_index: 0,
             current_player: None,
-            scroll_offset: 0, // Initialize scroll offset
+            scroll_offset: 0,
+            song_finished_rx: rx, // Store receiver
+            song_finished_tx: tx, // Store sender
+            next_mode: false,      // Default: auto-play disabled
         })
     }
 
+  
     pub fn list_directory(path: &Path, song_mapping: Option<&SongMapping>) -> Result<Vec<MusicItem>> {
         let mut items = Vec::new();
         for entry in fs::read_dir(path)? {
@@ -97,6 +102,7 @@ impl MusicBrowser {
             }
         }
     }
+
     pub fn move_selection_down(&mut self, visible_count: usize) {
         if self.selected_index + 1 < self.items.len() {
             self.selected_index += 1;
@@ -105,6 +111,7 @@ impl MusicBrowser {
             }
         }
     }
+
     pub fn enter_directory(&mut self, dir_name: &str, song_mapping: Option<&SongMapping>) -> Result<()> {
         let new_path = self.current_path.join(dir_name);
         if new_path.is_dir() {
@@ -116,7 +123,6 @@ impl MusicBrowser {
             anyhow::bail!("Not a directory: {}", dir_name)
         }
     }
-
     pub fn play_selected(&mut self) -> Result<()> {
         if let Some(item) = self.items.get(self.selected_index).cloned() {
             if !item.is_dir {
@@ -133,12 +139,13 @@ impl MusicBrowser {
         }
         Ok(())
     } 
-     pub fn get_selected_music_path(&self) -> Option<String> {
+
+
+    pub fn get_selected_music_path(&self) -> Option<String> {
         self.select_item()?.get_music_path()
     }
 
-
-    fn kill_current_player(&mut self) -> Result<()> {
+   pub  fn kill_current_player(&mut self) -> Result<()> {
         if let Some(mut player) = self.current_player.take() {
             if player.kill().is_err() {
                 Command::new("pkill")
@@ -151,9 +158,14 @@ impl MusicBrowser {
         }
         Ok(())
     }
-   
+
     pub fn cleanup(&mut self) -> Result<()> {
         self.kill_current_player()
     }
-}
 
+    pub fn toggle_next_mode(&mut self) {
+        self.next_mode = !self.next_mode;
+        debug!("Next mode toggled: {}", self.next_mode);
+    }
+
+}

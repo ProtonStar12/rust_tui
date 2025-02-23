@@ -140,6 +140,8 @@ impl EventHandler {
                 if let Err(e) = App::handle_player_exit(app_state){
                     log::error!("failed to exit: {}",e);
                 }
+                
+
                 app_state.set_input_mode(InputMode::Normal);
             }
 

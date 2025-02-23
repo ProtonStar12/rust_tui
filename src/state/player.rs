@@ -30,6 +30,9 @@ pub struct MusicPlayer {
     pub start_time: Option<Instant>,
     pub elapsed_before_pause: Duration,
     pub pause_start: Option<Instant>,
+    pub repeat: bool,
+    pub next_track: bool,
+    pub is_playing: bool,
 }
 
 impl MusicPlayer {
@@ -97,6 +100,9 @@ impl MusicPlayer {
             start_time: Some(Instant::now()),
             elapsed_before_pause: Duration::from_secs(0),
             pause_start: None,
+            repeat: false,
+            next_track: false,
+            is_playing: false,
         })
     }
     pub fn reload_audio(&mut self) -> Result<(), Box<dyn Error>> {
@@ -167,6 +173,14 @@ impl MusicPlayer {
                     eprintln!("Error reloading audio: {}", e);
                 }
             }
+            KeyCode::Char('t') => {
+                self.repeat = !self.repeat;
+               // println!("Repeat mode: {}", if self.repeat { "ON" } else { "OFF" });
+            }
+            KeyCode::Char('n') => {
+                self.next_track = !self.next_track;
+            }
+            
             KeyCode::Char('+') => {
                 self.vinyl_speed += 0.05;
             }
@@ -178,15 +192,23 @@ impl MusicPlayer {
             _ => {}
         }
     }
-
     pub fn update(&mut self) {
         if !self.is_paused {
             self.vinyl_angle += self.vinyl_speed;
         }
-        log::info!("Vinyl angle: {}", self.vinyl_angle);
+    
+        if self.repeat {
+            if let (Some(start_time), Some(total_duration)) = (self.start_time, self.total_duration) {
+                let current_elapsed = self.elapsed_before_pause + start_time.elapsed();
+                if current_elapsed >= total_duration {
+                    if let Err(e) = self.reload_audio() {
+                        eprintln!("Error restarting song: {}", e);
+                    }
+                }
+            }
+        }
     }
-
-
+    
   
     pub fn get_playback_progress(&self) -> f32 {
         if let (Some(start_time), Some(total_duration)) = (self.start_time, self.total_duration) {

@@ -24,6 +24,7 @@ use crate::state::browser::MusicBrowser;
 use crate::state::browser::{MusicItem,SongMapping};
 use crate::ui::sections::player::PlayerRenderer;
 use image::DynamicImage;
+use super::browser;
 use super::player::MusicPlayer;
 use crate::utils::art::get_album_art;
 use crate::state::event::VISIBLE_COUNT;
@@ -40,6 +41,7 @@ pub struct App {
     pub cava_bars:  Option<Vec<u8>>,
     pub from_player: bool,
     pub last_browser_index: Option<usize>,
+    
 }
 #[derive(Clone, Copy)]
 pub(crate) enum InputMode {
@@ -64,7 +66,7 @@ impl App {
             cava_bars: Some(vec![0;32]),
             from_player: false,
             last_browser_index: None,
-
+           
 
         }
     }
@@ -90,6 +92,7 @@ impl App {
             cava_bars: Some(vec![0;32]),
             from_player: false,
             last_browser_index: None,
+           
 
 
 
@@ -195,8 +198,12 @@ impl App {
             anyhow::bail!("Music browser is not initialized");
         }
     }
+
     pub fn handle_music_browser_exit(app_state: &mut App) -> Result<(), Box<dyn Error>> {
         app_state.clear_music_browser()?;
+        if let Some(browser)= &mut  app_state.music_browser {
+            browser.kill_current_player();
+        }
         app_state.set_input_mode(InputMode::Normal);
         Ok(())
     }
